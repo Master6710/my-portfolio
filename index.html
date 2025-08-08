@@ -1,71 +1,231 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Your Name</title>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 2em;
-            background-color: #f9f9f9;
-            color: #333;
-        }
-        header, footer {
-            text-align: center;
-            padding: 1em 0;
-        }
-        main {
-            max-width: 800px;
-            margin: auto;
-        }
-        a {
-            color: #007acc;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <link rel="icon" href="https://avatars.githubusercontent.com/u/37884808?s=96&v=4" type="image/png">
+  <title>Kubernetes Cluster Upgrade Guide - 08/07/2025</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      background-color: #f9f9f9;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1, h2, h3 {
+      color: #333;
+    }
+
+    .phase {
+      background-color: #e9f5ff;
+      border-left: 6px solid #007acc;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+    }
+
+    .note {
+      background-color: #fffbe6;
+      border-left: 6px solid #ffc107;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 8px;
+      font-style: italic;
+    }
+
+    pre {
+      background-color: #272822;
+      color: #f8f8f2;
+      padding: 10px;
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+
+    code {
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    a {
+      color: #007acc;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    ul {
+      margin-top: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+
+    table, th, td {
+      border: 1px solid #ddd;
+    }
+
+    th, td {
+      padding: 10px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #007acc;
+      color: white;
+    }
+
+    .header {
+      background-color: #007acc;
+      color: white;
+      padding: 20px;
+      text-align: center;
+      border-radius: 8px;
+    }
+
+    .commands-title {
+      margin-top: 40px;
+      font-size: 1.4em;
+      color: #333;
+      border-bottom: 2px solid #007acc;
+    }
+  </style>
 </head>
 <body>
-    <header>
-        <h1>Your Name</h1>
-        <p>Welcome to my personal website!</p>
-    </header>
 
-    <main>
-        <section>
-            <h2>About Me</h2>
-            <p>Write a short introduction about yourself here.</p>
-        </section>
+  <div class="header">
+    <h1>Kubernetes Cluster Upgrade Guide</h1>
+    <p>Michael J. Mckee</p>
+    <p><strong>Date:</strong> August 7, 2025</p>
+  </div>
 
-        <section>
-            <h2>Projects</h2>
-            <ul>
-                <li><a href="#">Project 1</a> – Brief description.</li>
-                <li><a href="#">Project 2</a> – Brief description.</li>
-            </ul>
-        </section>
+  <div class="note">
+    There are four phases that must happen <strong>in order</strong> to successfully upgrade your cluster.
+    Always operate on the <strong>control plane (master node)</strong> before worker nodes.
+    <br><br>
+    Replace <code>1.33.x-*</code> with your target version.
+  </div>
 
-        <section>
-            <h2>Contact</h2>
-            <p>Email: <a href="mailto:you@example.com">you@example.com</a></p>
-        </section>
-    </main>
+  <!-- PHASE 1 -->
+  <div class="phase">
+    <h2>Phase 1: Upgrade Cluster Components</h2>
+    <h3>Target: Master Nodes (Control Plane)</h3>
+    <ul>
+      <li>Drain the control plane node:</li>
+    </ul>
+    <pre><code>sudo kubectl drain controlplane
+sudo kubectl cordon controlplane</code></pre>
 
-    <footer>
-        <p>&copy; 2025 Your Name</p>
-    </footer>
+    <p>Update Kubernetes repository:</p>
+    <a href="https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/change-package-repository/" target="_blank">
+      View official documentation
+    </a>
 
+    <pre><code>echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+sudo apt update</code></pre>
 
-    <script>
-        $(function () {
-            console.log("logs working");
-        });
-    </script>
+    <p>If update fails:</p>
+    <pre><code>curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg</code></pre>
+
+    <p>Upgrade kubeadm:</p>
+    <pre><code>sudo apt-mark unhold kubeadm
+sudo apt-get update
+sudo apt-get install -y kubeadm='1.33.x-*'
+sudo apt-mark hold kubeadm</code></pre>
+
+    <p>Check available versions:</p>
+    <pre><code>sudo apt-cache madison kubeadm</code></pre>
+
+    <p>Check upgrade plan:</p>
+    <pre><code>sudo kubeadm upgrade plan v1.33.0</code></pre>
+
+    <p>Apply upgrade:</p>
+    <pre><code>sudo kubeadm upgrade apply v1.33.x</code></pre>
+
+    <p><strong>Note:</strong> kubelet must be manually upgraded afterward for node version to appear correctly.</p>
+  </div>
+
+  <!-- PHASE 2 -->
+  <div class="phase">
+    <h2>Phase 2: Upgrade kubelet and kubectl</h2>
+    <h3>Target: Master Nodes (Control Plane)</h3>
+
+    <p>Drain the node again:</p>
+    <pre><code>kubectl drain controlplane --ignore-daemonsets</code></pre>
+
+    <p>Upgrade:</p>
+    <pre><code>sudo apt-mark unhold kubelet kubectl
+sudo apt-get update
+sudo apt-get install -y kubelet='1.33.x-*' kubectl='1.33.x-*'
+sudo apt-mark hold kubelet kubectl</code></pre>
+
+    <p>Restart services:</p>
+    <pre><code>sudo systemctl daemon-reload
+sudo systemctl restart kubelet</code></pre>
+
+    <p>Uncordon node:</p>
+    <pre><code>kubectl uncordon &lt;node name&gt;</code></pre>
+  </div>
+
+  <!-- PHASE 3 -->
+  <div class="phase">
+    <h2>Phase 3: Upgrade Cluster Components</h2>
+    <h3>Target: Worker Nodes</h3>
+
+    <p>SSH into the worker node, then:</p>
+    <pre><code>kubectl drain workerNode1 --ignore-daemonsets</code></pre>
+
+    <p>Update repository:</p>
+    <pre><code>echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.28/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list</code></pre>
+
+    <p>If needed:</p>
+    <pre><code>curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg</code></pre>
+
+    <p>Upgrade kubeadm:</p>
+    <pre><code>sudo apt-mark unhold kubeadm
+sudo apt-get update
+sudo apt-get install -y kubeadm='1.33.x-*'
+sudo apt-mark hold kubeadm</code></pre>
+
+    <p>Run node upgrade:</p>
+    <pre><code>sudo kubeadm upgrade node v1.33.x</code></pre>
+  </div>
+
+  <!-- PHASE 4 -->
+  <div class="phase">
+    <h2>Phase 4: Upgrade kubelet and kubectl</h2>
+    <h3>Target: Worker Nodes</h3>
+
+    <p>Upgrade:</p>
+    <pre><code>sudo apt-mark unhold kubelet kubectl
+sudo apt-get update
+sudo apt-get install -y kubelet='1.33.x-*' kubectl='1.33.x-*'
+sudo apt-mark hold kubelet kubectl</code></pre>
+
+    <p>Restart services:</p>
+    <pre><code>sudo systemctl daemon-reload
+sudo systemctl restart kubelet</code></pre>
+
+    <p>Uncordon the worker node (from control plane):</p>
+    <pre><code>kubectl uncordon &lt;worker node&gt;</code></pre>
+
+    <p>Repeat steps 3-4 for each worker node.</p>
+  </div>
+
+  <!-- COMMANDS SECTION -->
+  <div class="commands-title">Useful Commands & Debugging</div>
+  <ul>
+    <li><code>kubeadm upgrade plan</code> — Dry-run upgrade plan</li>
+    <li><code>kubeadm upgrade apply</code> — Apply cluster upgrade</li>
+    <li><code>kubectl drain &lt;node&gt;</code> — Evict pods from a node</li>
+    <li><code>kubectl uncordon &lt;node&gt;</code> — Make node schedulable again</li>
+    <li><code>k describe nodes | grep -i taint</code> — Check taints on nodes</li>
+    <li><code>sudo apt-cache madison kubeadm</code> — See latest upgrade version available</li>
+  </ul>
 
 </body>
 </html>
-
